@@ -106,7 +106,8 @@ double InteractionE(double Ep) {
 //		cout<<energy<<"\t"<<XS<<endl;
 //		cout<<loopcounter<<"\t"<<energy<<"\t"<<XS<<"\t"<<trial_z<<"\t"<<XSmax<<endl;
 //		cout<<"RATIO: "<<energy<<"\t"<<gXS_1->Eval(energy)/gXS_0->Eval(energy)<<endl;
-		if(energy>2.5 && rndm->Rndm()<gXS_1->Eval(energy)/gXS_0->Eval(energy)) {
+		// Can populate excited state above 2.37 MeV
+		if(energy>2.37 && rndm->Rndm()<gXS_1->Eval(energy)/gXS_0->Eval(energy)) {
 //			cout<<"Excited"<<endl;
 			excited=true;
 		}
@@ -172,23 +173,38 @@ double InteractionTheta(double Ep) {//COM theta
 	bool sample=true;
 	double XSmax=3;
 	int counter=0;
-	if(Ep<1.95) {//Below where we have data it is isotropic
-		A[0]=1.;
-		A[1]=0.;
-		A[2]=0.;
-	}
-	else {
-		if(!excited) {
+	// Above 1.95 MeV, sample from differential cross section data
+	if (Ep >= 1.95) {
+		// Check if excited state is produced
+		if (excited) {
+			// Where we have data, sample from it
+			if (Ep > 2.5) {
+				A[0]=gA0p->Eval(Ep);
+				A[1]=gA1p->Eval(Ep);
+				A[2]=gA2p->Eval(Ep);
+			}
+			// But between 2.37 < Ep < 2.5, assume isotropic
+			else {
+				A[0]=1.;
+				A[1]=0.;
+				A[2]=0.;
+			}
+		}
+		// Otherwise, we must have produced Be in the ground state
+		// Sample from data
+		else {
 			A[0]=gA0->Eval(Ep);
 			A[1]=gA1->Eval(Ep);
 			A[2]=gA2->Eval(Ep);
 		}
-		if(excited) {
-			A[0]=gA0p->Eval(Ep);
-			A[1]=gA1p->Eval(Ep);
-			A[2]=gA2p->Eval(Ep);
-		}
 	}
+	// Below 2.5 MeV, we can assume isotropic
+	else {
+		A[0]=1.;
+		A[1]=0.;
+		A[2]=0.;
+	}
+		
 //	cout<<Ep<<"\t"<<excited<<"\t"<<A[0]<<"\t"<<A[1]<<"\t"<<A[2]<<endl;
 	while(sample) {
 		double XS_sample = XSmax*rndm->Rndm();
@@ -209,7 +225,7 @@ double InteractionTheta(double Ep) {//COM theta
 
 double ConvertCMtoLab(double Ep, double thetaCM) {//Convert thetaCM to lab
 	double Ex=0;
-	if(excited) Ex=0.477;
+	if(excited) Ex=0.429;
 	double gamma = sqrt(((mp*mn)/(mBe*mLi))*(Ep/(Ep+(Q-Ex)*(1.+mp/mLi))));//Calculate gamma for the conversion to lab COM
 	gamma = gamma*((mp+mLi)/(mn+mBe));//Account for change in the CM velocity
 	double thetalab = atan2(sin(thetaCM),(cos(thetaCM)+gamma));//
@@ -250,7 +266,7 @@ double NeutronEnergy(double Ep, double theta, double thetaCM) {//Get neutron ene
 */
 	double En;
 	double Ex=0;
-	if(excited) Ex=0.431;//MeV
+	if(excited) Ex=0.429;//MeV
 	double ECM = mLi*Ep/(mLi+mp)+Q-Ex;
 	if(ECM<0) {
 		cout<<"Below threshold! Something is wrong!"<<endl;
